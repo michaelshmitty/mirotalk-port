@@ -1,0 +1,77 @@
+#!/bin/sh
+
+# PROVIDE: mirotalk
+# REQUIRE: LOGIN network
+# KEYWORD: shutdown
+#
+# extraargs typically can remain unset
+# extraargs accepts as string any of:
+#  --nowebclient             Indicates that the web server should not host the web client.
+#  -w, --webdir              Path to the Mirotalk web UI resources. Defaults to ./mirotalk-web
+#  -c, --configdir           Path to use for configuration data (user settings and pictures).
+#  -l, --logdir              Path to use for writing log files. Defaults to $datadir/log
+#  --ffmpeg                  Path to external FFmpeg executable to use. Defaults to  PATH.
+#  --published-server-url    Mirotalk Server URL to publish via auto discover process
+#
+#
+# variable definitions
+#  mirotalk_exec_dir     Path to the actual mirotalk binary Defaults to %%DATADIR%%
+#  mirotalk_data_dir     Path to use for the data folder (database files, etc.) Defaults to /var/db/mirotalk
+#  mirotalk_cache_dir    Path to use for caching. Defaults to /var/cache/mirotalk
+#  mirotalk_pid_dir      Path to use for the pid file. Defaults to /var/run/mirotalk
+
+. /etc/rc.subr
+name=mirotalk
+rcvar=mirotalk_enable
+load_rc_config $name
+
+: ${mirotalk_enable:=NO}
+: ${mirotalk_user:="mirotalk"}
+: ${mirotalk_group:="mirotalk"}
+: ${mirotalk_extraargs:=""}
+: ${mirotalk_exec_dir:="%%DATADIR%%"}
+: ${mirotalk_data_dir:="/var/db/mirotalk"}
+: ${mirotalk_cache_dir:="/var/cache/mirotalk"}
+: ${mirotalk_pid_dir:="/var/run/mirotalk"}
+
+pidfile="${mirotalk_pid_dir}/${name}_daemon.pid"
+pidfile_child="${mirotalk_pid_dir}/${name}_child.pid"
+command="/usr/sbin/daemon"
+
+
+start_precmd=${name}_precmd
+mirotalk_precmd() {
+    export PATH="/sbin:/bin:/usr/sbin:/usr/bin:%%LOCALBASE%%/sbin:%%LOCALBASE%%/bin"
+
+    if [ ! -d ${mirotalk_exec_dir} ]; then
+        install -d -o ${mirotalk_user} -g ${mirotalk_group} ${mirotalk_exec_dir}
+    fi
+
+    if [ ! -d ${mirotalk_data_dir} ]; then
+        install -d -o ${mirotalk_user} -g ${mirotalk_group} ${mirotalk_data_dir}
+    fi
+
+    if [ ! -d ${mirotalk_cache_dir} ]; then
+        install -d -o ${mirotalk_user} -g ${mirotalk_group} ${mirotalk_cache_dir}
+    fi
+
+    if [ ! -d ${mirotalk_pid_dir} ]; then
+        install -d -o ${mirotalk_user} -g ${mirotalk_group} ${mirotalk_pid_dir}
+    fi
+
+    # .NET 6+ use dual mode sockets to avoid the separate AF handling.
+    # disable .NET use of V6 if no ipv6 is configured.
+    # See https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=259194#c17
+    ifconfig -a -u -G lo | grep -q inet6
+    if [ $? == 1 ]; then
+        export DOTNET_SYSTEM_NET_DISABLEIPV6=1
+    fi
+
+    if [ `uname -K` -ge 1400092 ]; then
+        export CLR_OPENSSL_VERSION_OVERRIDE=30
+    fi
+
+    rc_flags="-r -f -p ${pidfile_child} -P ${pidfile} ${mirotalk_exec_dir}/mirotalk --datadir ${mirotalk_data_dir} --cachedir ${mirotalk_cache_dir} ${mirotalk_extraargs} >> /dev/null 2>&1 ${rc_flags}"
+}
+
+run_rc_command "$1"

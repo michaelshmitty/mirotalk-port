@@ -1,0 +1,10 @@
+[
+{ type: install
+  message: <<EOM
+MiroTalk has been installed.
+
+Configure MiroTalk by copying %%MIROTALK_HOME%%/app/src/config.template.js
+to %%MIROTALK_HOME%%/app/src/config.js and make changes if necessary.
+EOM
+}
+]

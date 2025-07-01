@@ -1,0 +1,9 @@
+#!/bin/sh
+
+DIR=%%MIROTALK_HOME%%
+
+if [ "$2" = "POST-DEINSTALL" ]; then
+    if [ -e ${DIR} ]; then
+        echo "==> You should check and manually remove the \"${DIR}\" directory."
+    fi
+fi

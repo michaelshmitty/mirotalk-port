@@ -1,0 +1,61 @@
+#!/bin/sh
+
+# PROVIDE: mirotalk
+# REQUIRE: DAEMON
+# KEYWORD: shutdown
+
+# FreeBSD rc.d script for mirotalk
+#
+
+# The mirotalk service has the following rc.conf options:
+#
+# mirotalk_enable (bool):    Set to YES to enable mirotalk
+#           Default: NO
+# mirotalk_user (str):   The user to run mirotalk as
+#           Default: mirotalk
+# mirotalk_group (str):  The group to run mirotalk as
+#           Default: mirotalk
+# mirotalk_chdir (str):  The directory where mirotalk is installed
+#           Default: %%PREFIX%%/mirotalk
+# mirotalk_datadir (str):    The directory where mirotalk's data is stored
+#           Default: /var/db/mirotalk
+# mirotalk_restart (bool):   Set to YES if mirotalk should be automatically
+#           restarted after it crashes.
+#           Default: NO
+
+. /etc/rc.subr
+
+name=mirotalk
+desc="mirotalk service"
+rcvar=mirotalk_enable
+
+load_rc_config $name
+
+: ${mirotalk_enable:=NO}
+: ${mirotalk_group:=%%MIROTALK_GROUP%%}
+: ${mirotalk_datadir:=%%MIROTALK_DATADIR%%}
+: ${mirotalk_pidfile=/var/run/mirotalk/mirotalk.pid}
+: ${mirotalk_restart=NO}
+: ${mirotalk_user:=%%MIROTALK_USER%%}
+: ${mirotalk_chdir=%%MIROTALK_HOME%%}
+
+# If mirotalk_restart is YES, then restart mirotalk when it crashes, otherwise
+# daemon(8) will exit.
+if checkyesno mirotalk_restart; then
+    _restartargs="-r"
+else
+    _restartargs=""
+fi
+
+pidfile=${mirotalk_pidfile}
+
+command=/usr/sbin/daemon
+command_args="-f -H \
+                -P ${pidfile} -t ${name} -T ${name} \
+                ${_restartargs} \
+                %%LOCALBASE%%/bin/node app/src/server.js"
+required_files="${mirotalk_chdir}/app/src/config.js"
+
+start_precmd="[ -d ${pidfile%/*} ] || install -d -o ${mirotalk_user} -g ${mirotalk_group} ${pidfile%/*}"
+
+run_rc_command "$1"
